@@ -1,0 +1,37 @@
+<h2>Debug MCP Server</h2>
+<p>Exposes an <b>MCP (Model Context Protocol)</b> server from IntelliJ IDEA so AI coding assistants
+(Windsurf Cascade, Cursor, Claude Code, etc.) can control the Java/Kotlin debugger remotely.</p>
+
+<h3>Highlights</h3>
+<ul>
+  <li>Starts automatically when the project opens &mdash; zero-config by default.</li>
+  <li>Includes a <b>bundled stdio proxy</b> so MCP clients work even if IntelliJ starts after the AI agent.</li>
+  <li>Supports <b>dynamic</b> (auto-assigned) or <b>fixed</b> TCP port via the settings panel.</li>
+  <li>Port is written to <code>&lt;project&gt;/.idea/debugmcp.port</code> for auto-discovery.</li>
+</ul>
+
+<h3>Connecting</h3>
+<p>The recommended setup uses the <b>bundled stdio proxy</b> (<code>bin/debugmcp-proxy.cmd</code> inside the plugin directory).
+Add this to your MCP client configuration:</p>
+<pre><code>{
+  "mcpServers": {
+    "intellij-debug": {
+      "command": "&lt;plugin-dir&gt;/bin/debugmcp-proxy.cmd"
+    }
+  }
+}</code></pre>
+<p>The proxy handles boot-ordering: it starts immediately and connects to IntelliJ on demand.
+Open the <b>Debug MCP</b> tool window to see the exact paths and a ready-to-copy config snippet.</p>
+
+<h3>Available Tools (19)</h3>
+<table>
+  <tr><td><b>Run Configs</b></td><td>list_run_configurations, start_debug_session, stop_debug_session, get_debug_status</td></tr>
+  <tr><td><b>Breakpoints</b></td><td>set_breakpoint, remove_breakpoint, list_breakpoints</td></tr>
+  <tr><td><b>Execution</b></td><td>resume, step_over, step_into, step_out</td></tr>
+  <tr><td><b>Inspection</b></td><td>get_threads, get_stack_trace, get_variables, evaluate_expression, get_console_output, send_console_input</td></tr>
+  <tr><td><b>Class Inspection</b></td><td>decompile_class &mdash; read decompiled source from any JAR/library class</td></tr>
+  <tr><td><b>Process</b></td><td>get_process_info</td></tr>
+</table>
+<p><code>set_breakpoint</code> and <code>remove_breakpoint</code> accept either <code>filePath</code> (local source) or <code>className</code> (for JAR/library classes).</p>
+<p>All execution/inspection tools accept an optional <code>sessionName</code> to target a specific debug session,
+and an optional <code>port</code> to route to a specific IntelliJ instance.</p>

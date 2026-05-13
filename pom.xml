@@ -1,0 +1,623 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.sahil0.debugmcp</groupId>
+    <artifactId>intellij-debug-mcp-plugin</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>Debug MCP Server - IntelliJ Plugin</name>
+    <description>IntelliJ IDEA plugin that embeds an MCP server exposing Java debugging capabilities</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <kotlin.version>2.3.0</kotlin.version>
+        <mcp.sdk.version>0.11.1</mcp.sdk.version>
+        <ktor.version>3.1.1</ktor.version>
+        <coroutines.version>1.10.1</coroutines.version>
+        <serialization.version>1.8.1</serialization.version>
+        <!-- Default for Linux; overridden by OS profiles below or via /=... -->
+        <intellij.home>${user.home}/.local/share/JetBrains/Toolbox/apps/intellij-idea</intellij.home>
+        <kotlin.compiler.jvmTarget>17</kotlin.compiler.jvmTarget>
+    </properties>
+
+    <dependencies>
+        <!-- ==================== -->
+        <!-- MCP SDK + Transports -->
+        <!-- ==================== -->
+        <dependency>
+            <groupId>io.modelcontextprotocol</groupId>
+            <artifactId>kotlin-sdk-jvm</artifactId>
+            <version>${mcp.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-cio-jvm</artifactId>
+            <version>${ktor.version}</version>
+        </dependency>
+
+        <!-- ==================== -->
+        <!-- Kotlin Runtime       -->
+        <!-- ==================== -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core-jvm</artifactId>
+            <version>${coroutines.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-json-jvm</artifactId>
+            <version>${serialization.version}</version>
+        </dependency>
+
+        <!-- SLF4J no-op to suppress MCP SDK logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+
+        <!-- ================================================== -->
+        <!-- IntelliJ Platform SDK (system scope, local install) -->
+        <!-- ================================================== -->
+
+        <!-- Platform core: Service, Project, Disposable, Logger -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>core</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.core.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>core-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.core.impl.jar</systemPath>
+        </dependency>
+
+        <!-- Platform IDE: ApplicationManager -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>ide</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.ide.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>ide-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.ide.impl.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>ide-core</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.ide.core.jar</systemPath>
+        </dependency>
+
+        <!-- Util -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>util</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/util.jar</systemPath>
+        </dependency>
+
+        <!-- App -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>app</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/app.jar</systemPath>
+        </dependency>
+
+        <!-- Platform lang: RunManager, execution framework -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>lang</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.lang.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>lang-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.lang.impl.jar</systemPath>
+        </dependency>
+
+        <!-- XDebugger APIs -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>debugger</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.debugger.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>debugger-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.debugger.impl.jar</systemPath>
+        </dependency>
+
+        <!-- Debugger impl shared: XExpressionImpl -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>debugger-impl-shared</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.debugger.impl.shared.jar</systemPath>
+        </dependency>
+
+        <!-- Java Debugger: JavaDebugProcess, DebugProcessImpl, VirtualMachineProxyImpl -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-debugger-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.impl.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-debugger</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.jar</systemPath>
+        </dependency>
+
+        <!-- Execution -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>execution-impl-backend</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.execution.impl.backend.jar</systemPath>
+        </dependency>
+
+        <!-- Analysis (VFS, PSI) -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>analysis</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.analysis.jar</systemPath>
+        </dependency>
+
+        <!-- Editor -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>editor</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.editor.jar</systemPath>
+        </dependency>
+
+        <!-- Project Model -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>projectModel</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.projectModel.jar</systemPath>
+        </dependency>
+
+        <!-- Platform loader -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>platform-loader</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/platform-loader.jar</systemPath>
+        </dependency>
+
+        <!-- Core UI -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>core-ui</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.core.ui.jar</systemPath>
+        </dependency>
+
+        <!-- util-8: Disposable, UserDataHolder, ModificationTracker -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>util-8</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/util-8.jar</systemPath>
+        </dependency>
+
+        <!-- util_rt: ThrowableComputable -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>util-rt</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/util_rt.jar</systemPath>
+        </dependency>
+
+        <!-- util.ui: JBPanel -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>util-ui</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/intellij.platform.util.ui.jar</systemPath>
+        </dependency>
+
+        <!-- lib.jar: additional platform classes -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.platform</groupId>
+            <artifactId>lib</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/lib/lib.jar</systemPath>
+        </dependency>
+
+        <!-- ================================================== -->
+        <!-- Java Plugin (system scope, local install)          -->
+        <!-- ================================================== -->
+
+        <!-- Java impl -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/java-impl.jar</systemPath>
+        </dependency>
+
+        <!-- Java PSI: JavaPsiFacade, PsiClass -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-psi</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.jar</systemPath>
+        </dependency>
+
+        <!-- Java Analysis APIs -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-analysis</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.analysis.jar</systemPath>
+        </dependency>
+
+        <!-- Java Indexing: class search/index -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-indexing</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.indexing.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>java-indexing-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.indexing.impl.jar</systemPath>
+        </dependency>
+
+        <!-- Java Debugger APIs -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>debugger</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>debugger-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.impl.jar</systemPath>
+        </dependency>
+
+        <!-- Java Compiler: CompilerManager -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>compiler</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.compiler.jar</systemPath>
+        </dependency>
+
+        <!-- Java Execution -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>execution</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.execution.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>execution-impl</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.execution.impl.jar</systemPath>
+        </dependency>
+
+        <!-- JB JDI -->
+        <dependency>
+            <groupId>com.jetbrains.intellij.java</groupId>
+            <artifactId>jb-jdi</artifactId>
+            <version>local</version>
+            <scope>system</scope>
+            <systemPath>${intellij.home}/plugins/java/lib/jb-jdi.jar</systemPath>
+        </dependency>
+
+        <!-- ==================== -->
+        <!-- Test Dependencies     -->
+        <!-- ==================== -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-test-jvm</artifactId>
+            <version>${coroutines.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test-junit5</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+
+        <plugins>
+            <!-- Kotlin compiler (downloads kotlin compiler as Maven dep) -->
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jvmTarget>17</jvmTarget>
+                    <compilerPlugins>
+                        <plugin>kotlinx-serialization</plugin>
+                    </compilerPlugins>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-serialization</artifactId>
+                        <version>${kotlin.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <!-- JAR: include META-INF/plugin.xml from resources -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+            </plugin>
+
+            <!-- Inject description.html and change-notes.html into plugin.xml -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>inject-plugin-metadata</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <loadfile property="plugin.description"
+                                          srcFile="${project.basedir}/src/main/plugin/description.html"/>
+                                <loadfile property="plugin.changeNotes"
+                                          srcFile="${project.basedir}/src/main/plugin/change-notes.html"/>
+                                <replace file="${project.build.outputDirectory}/META-INF/plugin.xml">
+                                    <replacefilter token="@@VERSION@@"
+                                                   value="${project.version}"/>
+                                    <replacefilter token="@@DESCRIPTION@@"
+                                                   value="${plugin.description}"/>
+                                    <replacefilter token="@@CHANGE_NOTES@@"
+                                                   value="${plugin.changeNotes}"/>
+                                </replace>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Unit tests (surefire) - excludes integration tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*IT.kt</exclude>
+                        <exclude>**/*IntegrationTest.java</exclude>
+                        <exclude>**/*IntegrationTest.kt</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Integration tests (failsafe) - run with mvn verify -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                        <include>**/*IT.kt</include>
+                        <include>**/*IntegrationTest.java</include>
+                        <include>**/*IntegrationTest.kt</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Shade: build standalone proxy JAR (cross-platform, no Python needed) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>proxy-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <outputFile>${project.build.directory}/intellij-debug-mcp-proxy.jar</outputFile>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.sahil0.debugmcp.proxy.StdioProxy</mainClass>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/plugin.xml</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>com.jetbrains.intellij.platform:*</exclude>
+                                    <exclude>com.jetbrains.intellij.java:*</exclude>
+                                </excludes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Assembly: create plugin ZIP for IntelliJ installation -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <executions>
+                    <execution>
+                        <id>plugin-zip</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/plugin.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ====================================================== -->
+    <!-- OS-detection profiles: set intellij.home default per OS -->
+    <!-- Override on CLI:  mvn compile -Dintellij.home=/my/path  -->
+    <!-- ====================================================== -->
+    <profiles>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <properties>
+                <intellij.home>C:/Program Files/JetBrains/IntelliJ IDEA 2026.1</intellij.home>
+            </properties>
+        </profile>
+        <profile>
+            <id>mac</id>
+            <activation>
+                <os><family>mac</family></os>
+            </activation>
+            <properties>
+                <intellij.home>/Applications/IntelliJ IDEA.app/Contents</intellij.home>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os><family>unix</family></os>
+                <property>
+                    <name>!os.name</name>
+                    <value>Mac OS X</value>
+                </property>
+            </activation>
+            <properties>
+                <intellij.home>${user.home}/.local/share/JetBrains/Toolbox/apps/intellij-idea</intellij.home>
+            </properties>
+        </profile>
+    </profiles>
+</project>

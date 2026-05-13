@@ -1,0 +1,31 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin url="https://github.com/sahil-ramagiri/intellij-debug-mcp-plugin">
+    <id>com.sahil0.debugmcp</id>
+    <name>Debug MCP Server</name>
+    <vendor email="hello@sahil0.com" url="https://github.com/sahil-ramagiri">Sahil Ramagiri</vendor>
+    <version>@@VERSION@@</version>
+
+    <!-- Compatible with IntelliJ IDEA 2026.1+ -->
+    <idea-version since-build="261" until-build="261.*"/>
+
+    <!-- Injected at build time from src/main/plugin/description.html -->
+    <description><![CDATA[@@DESCRIPTION@@]]></description>
+
+    <!-- Injected at build time from src/main/plugin/change-notes.html -->
+    <change-notes><![CDATA[@@CHANGE_NOTES@@]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+    <depends>com.intellij.modules.xdebugger</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow factoryClass="com.sahil0.debugmcp.toolwindow.McpToolWindowFactory"
+                    id="Debug MCP"
+                    icon="/icons/debugMcp.svg"
+                    anchor="bottom"
+                    secondary="true"/>
+        <projectService serviceImplementation="com.sahil0.debugmcp.McpServerService"/>
+        <projectService serviceImplementation="com.sahil0.debugmcp.McpSettingsState"/>
+        <postStartupActivity implementation="com.sahil0.debugmcp.McpStartupActivity"/>
+    </extensions>
+</idea-plugin>
