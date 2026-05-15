@@ -1,6 +1,7 @@
 package com.sahil0.debugmcp.proxy
 
-import kotlinx.serialization.json.*
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -26,7 +27,7 @@ object StdioProxy {
 
     // ── Tool definitions (served locally — no IntelliJ connection needed) ──
 
-    internal val TOOLS: JsonArray = buildToolDefinitions()
+    internal val TOOLS: JSONArray = buildToolDefinitions()
 
     // ── Connection pool ──
 
@@ -50,7 +51,7 @@ object StdioProxy {
             val trimmed = line.trim()
             if (trimmed.isNotEmpty()) {
                 try {
-                    val msg = Json.parseToJsonElement(trimmed).jsonObject
+                    val msg = JSONObject(trimmed)
                     handleRequest(msg)
                 } catch (e: Exception) {
                     log("Error handling request: ${e.message}")
@@ -62,54 +63,45 @@ object StdioProxy {
 
     // ── Request handling ──
 
-    internal fun handleRequest(msg: JsonObject) {
-        val method = msg["method"]?.jsonPrimitive?.contentOrNull ?: ""
-        val msgId = msg["id"]
-        val params = msg["params"]?.jsonObject ?: buildJsonObject {}
+    internal fun handleRequest(msg: JSONObject) {
+        val method = msg.optString("method", "")
+        val msgId = msg.opt("id")
+        val params = msg.optJSONObject("params") ?: JSONObject()
 
         when (method) {
-            "initialize" -> sendResponse(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", msgId!!)
-                put("result", buildJsonObject {
-                    put("protocolVersion", JsonPrimitive("2024-11-05"))
-                    put("capabilities", buildJsonObject {
-                        put("tools", buildJsonObject { put("listChanged", JsonPrimitive(true)) })
-                    })
-                    put("serverInfo", buildJsonObject {
-                        put("name", JsonPrimitive("intellij-debug-mcp-proxy"))
-                        put("version", JsonPrimitive("1.0.0"))
-                    })
-                })
-            })
+            "initialize" -> sendResponse(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", msgId)
+                .put("result", JSONObject()
+                    .put("protocolVersion", "2024-11-05")
+                    .put("capabilities", JSONObject()
+                        .put("tools", JSONObject().put("listChanged", true)))
+                    .put("serverInfo", JSONObject()
+                        .put("name", "intellij-debug-mcp-proxy")
+                        .put("version", "1.0.0"))))
             "notifications/initialized" -> { /* no response */ }
-            "tools/list" -> sendResponse(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", msgId!!)
-                put("result", buildJsonObject {
-                    put("tools", TOOLS)
-                })
-            })
+            "tools/list" -> sendResponse(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", msgId)
+                .put("result", JSONObject()
+                    .put("tools", TOOLS)))
             "tools/call" -> {
-                val toolName = params["name"]?.jsonPrimitive?.contentOrNull ?: ""
-                val arguments = params["arguments"]?.jsonObject ?: buildJsonObject {}
+                val toolName = params.optString("name", "")
+                val arguments = params.optJSONObject("arguments") ?: JSONObject()
                 val result = forwardToolCall(toolName, arguments)
-                sendResponse(buildJsonObject {
-                    put("jsonrpc", JsonPrimitive("2.0"))
-                    put("id", msgId!!)
-                    put("result", result)
-                })
+                sendResponse(JSONObject()
+                    .put("jsonrpc", "2.0")
+                    .put("id", msgId)
+                    .put("result", result))
             }
             else -> {
                 if (msgId != null) {
-                    sendResponse(buildJsonObject {
-                        put("jsonrpc", JsonPrimitive("2.0"))
-                        put("id", msgId)
-                        put("error", buildJsonObject {
-                            put("code", JsonPrimitive(-32601))
-                            put("message", JsonPrimitive("Method not found: $method"))
-                        })
-                    })
+                    sendResponse(JSONObject()
+                        .put("jsonrpc", "2.0")
+                        .put("id", msgId)
+                        .put("error", JSONObject()
+                            .put("code", -32601)
+                            .put("message", "Method not found: $method")))
                 }
             }
         }
@@ -117,8 +109,8 @@ object StdioProxy {
 
     // ── stdio I/O ──
 
-    internal fun sendResponse(obj: JsonObject) {
-        val payload = Json.encodeToString(obj)
+    internal fun sendResponse(obj: JSONObject) {
+        val payload = obj.toString()
         System.out.write((payload + "\n").toByteArray(Charsets.UTF_8))
         System.out.flush()
     }
@@ -228,29 +220,25 @@ object StdioProxy {
         // MCP handshake
         return try {
             conn.nextId++
-            connSend(conn, buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", JsonPrimitive(conn.nextId))
-                put("method", JsonPrimitive("initialize"))
-                put("params", buildJsonObject {
-                    put("protocolVersion", JsonPrimitive("2024-11-05"))
-                    put("capabilities", buildJsonObject {})
-                    put("clientInfo", buildJsonObject {
-                        put("name", JsonPrimitive("debugmcp-proxy"))
-                        put("version", JsonPrimitive("1.0.0"))
-                    })
-                })
-            })
+            connSend(conn, JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", conn.nextId)
+                .put("method", "initialize")
+                .put("params", JSONObject()
+                    .put("protocolVersion", "2024-11-05")
+                    .put("capabilities", JSONObject())
+                    .put("clientInfo", JSONObject()
+                        .put("name", "debugmcp-proxy")
+                        .put("version", "1.0.0"))))
             val resp = connRecv(conn)
             if (resp == null) {
                 log("IntelliJ on port $port did not respond to initialize")
                 try { sock.close() } catch (_: Exception) {}
                 return false
             }
-            connSend(conn, buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("method", JsonPrimitive("notifications/initialized"))
-            })
+            connSend(conn, JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("method", "notifications/initialized"))
             Thread.sleep(200)
             connections[port] = conn
             log("Connected to IntelliJ on port $port (from: $source)")
@@ -271,13 +259,13 @@ object StdioProxy {
         }
     }
 
-    internal fun connSend(conn: Connection, obj: JsonObject) {
-        val payload = Json.encodeToString(obj)
+    internal fun connSend(conn: Connection, obj: JSONObject) {
+        val payload = obj.toString()
         conn.sock.getOutputStream().write((payload + "\n").toByteArray(Charsets.UTF_8))
         conn.sock.getOutputStream().flush()
     }
 
-    internal fun connRecv(conn: Connection, timeoutMs: Int = 10000): JsonObject? {
+    internal fun connRecv(conn: Connection, timeoutMs: Int = 10000): JSONObject? {
         conn.sock.soTimeout = timeoutMs
         while (true) {
             // Check buffer for complete line
@@ -288,8 +276,8 @@ object StdioProxy {
                 val trimmed = line.toString(Charsets.UTF_8).trim()
                 if (trimmed.isEmpty()) continue
                 try {
-                    val msg = Json.parseToJsonElement(trimmed).jsonObject
-                    if (msg.containsKey("id")) return msg
+                    val msg = JSONObject(trimmed)
+                    if (msg.has("id")) return msg
                     // Skip notifications
                 } catch (_: Exception) {}
                 continue
@@ -308,31 +296,27 @@ object StdioProxy {
 
     // ── Tool call forwarding ──
 
-    internal fun callOnConn(conn: Connection, port: Int, name: String, arguments: JsonObject): Pair<JsonObject?, Boolean> {
+    internal fun callOnConn(conn: Connection, port: Int, name: String, arguments: JSONObject): Pair<JSONObject?, Boolean> {
         return try {
             conn.nextId++
-            connSend(conn, buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", JsonPrimitive(conn.nextId))
-                put("method", JsonPrimitive("tools/call"))
-                put("params", buildJsonObject {
-                    put("name", JsonPrimitive(name))
-                    put("arguments", arguments)
-                })
-            })
+            connSend(conn, JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", conn.nextId)
+                .put("method", "tools/call")
+                .put("params", JSONObject()
+                    .put("name", name)
+                    .put("arguments", arguments)))
             val resp = connRecv(conn, timeoutMs = 180_000)
                 ?: throw java.net.SocketException("No response")
-            if (resp.containsKey("error")) {
-                val errResult = buildJsonObject {
-                    put("content", buildJsonArray { add(buildJsonObject {
-                        put("type", JsonPrimitive("text"))
-                        put("text", Json.encodeToString(resp["error"]!!))
-                    })})
-                    put("isError", JsonPrimitive(true))
-                }
+            if (resp.has("error")) {
+                val errResult = JSONObject()
+                    .put("content", JSONArray().put(JSONObject()
+                        .put("type", "text")
+                        .put("text", resp.get("error").toString())))
+                    .put("isError", true)
                 errResult to true
             } else {
-                (resp["result"]?.jsonObject ?: buildJsonObject {}) to true
+                (resp.optJSONObject("result") ?: JSONObject()) to true
             }
         } catch (e: Exception) {
             log("Connection to port $port lost: ${e.message}")
@@ -342,26 +326,22 @@ object StdioProxy {
         }
     }
 
-    internal fun extractTargetPort(arguments: JsonObject): Triple<Int?, JsonObject, String?> {
-        val rawPort = arguments["port"]
-        if (rawPort == null) return Triple(null, arguments, null)
+    internal fun extractTargetPort(arguments: JSONObject): Triple<Int?, JSONObject, String?> {
+        if (!arguments.has("port")) return Triple(null, arguments, null)
 
-        val cleaned = buildJsonObject {
-            for ((k, v) in arguments) {
-                if (k != "port") put(k, v)
-            }
-        }
+        val cleaned = JSONObject(arguments.toString())
+        cleaned.remove("port")
 
         return try {
-            val port = rawPort.jsonPrimitive.int
+            val port = arguments.getInt("port")
             if (port <= 0) throw IllegalArgumentException("port must be positive")
             Triple(port, cleaned, null)
         } catch (e: Exception) {
-            Triple(null, cleaned, "Invalid proxy routing port: $rawPort")
+            Triple(null, cleaned, "Invalid proxy routing port: ${arguments.opt("port")}")
         }
     }
 
-    internal fun forwardToolCall(name: String, arguments: JsonObject): JsonObject {
+    internal fun forwardToolCall(name: String, arguments: JSONObject): JSONObject {
         val (targetPort, forwardedArgs, portErr) = extractTargetPort(arguments)
         if (portErr != null) {
             return errorResult(portErr)
@@ -398,7 +378,7 @@ object StdioProxy {
         return errorResult("Lost connection to all IntelliJ instances")
     }
 
-    private fun forwardToSpecificPort(targetPort: Int, name: String, args: JsonObject): JsonObject {
+    private fun forwardToSpecificPort(targetPort: Int, name: String, args: JSONObject): JSONObject {
         var conn = connections[targetPort]
         if (conn == null && !connectToPort(targetPort, "args:port")) {
             return errorResult("Cannot connect to IntelliJ on requested port $targetPort")
@@ -422,11 +402,9 @@ object StdioProxy {
         return errorResult("Lost connection to IntelliJ on requested port $targetPort")
     }
 
-    internal fun errorResult(message: String): JsonObject = buildJsonObject {
-        put("content", buildJsonArray { add(buildJsonObject {
-            put("type", JsonPrimitive("text"))
-            put("text", Json.encodeToString(buildJsonObject { put("error", JsonPrimitive(message)) }))
-        })})
-        put("isError", JsonPrimitive(true))
-    }
+    internal fun errorResult(message: String): JSONObject = JSONObject()
+        .put("content", JSONArray().put(JSONObject()
+            .put("type", "text")
+            .put("text", JSONObject().put("error", message).toString())))
+        .put("isError", true)
 }

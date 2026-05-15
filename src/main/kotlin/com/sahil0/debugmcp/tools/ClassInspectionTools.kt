@@ -8,7 +8,6 @@ import com.intellij.openapi.roots.OrderEnumerator
 import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
-import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.vfs.JarFileSystem
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -17,13 +16,31 @@ import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.serialization.json.*
 
-fun registerClassInspectionTools(server: Server, project: Project) {
+/** Lazily cached class roots per project — avoids re-scanning hundreds of JARs on every call. */
+private val classRootsCache = java.util.WeakHashMap<Project, Set<VirtualFile>>()
+private val sourceRootsCache = java.util.WeakHashMap<Project, Set<VirtualFile>>()
+
+private fun getCachedClassRoots(project: Project): Set<VirtualFile> {
+    return classRootsCache.getOrPut(project) { collectAllClassRoots(project) }
+}
+
+private fun getCachedSourceRoots(project: Project): Set<VirtualFile> {
+    return sourceRootsCache.getOrPut(project) { collectAllSourceRoots(project) }
+}
+
+/** Invalidate caches (e.g. after project model changes). */
+fun invalidateClassRootsCache(project: Project) {
+    classRootsCache.remove(project)
+    sourceRootsCache.remove(project)
+}
+
+fun registerClassInspectionTools(server: McpServer, project: Project) {
 
     // --- decompile_class ---
     server.addTool(
@@ -117,7 +134,7 @@ private fun findClassPsiFile(project: Project, className: String): PsiFile? {
 
     // Strategy 2: Direct .class file search across all discoverable classpath roots
     val classRelPath = className.replace('.', '/') + ".class"
-    val classRoots = collectAllClassRoots(project)
+    val classRoots = getCachedClassRoots(project)
 
     for (root in classRoots) {
         val vf = root.findFileByRelativePath(classRelPath)
@@ -147,7 +164,7 @@ private fun findClassPsiFile(project: Project, className: String): PsiFile? {
     // Strategy 3: Project source roots (.kt / .java files)
     val packagePath = className.substringBeforeLast('.', "").replace('.', '/')
     val simpleName = className.substringAfterLast('.')
-    val sourceRoots = collectAllSourceRoots(project)
+    val sourceRoots = getCachedSourceRoots(project)
 
     for (root in sourceRoots) {
         val dir = if (packagePath.isEmpty()) root else root.findFileByRelativePath(packagePath) ?: continue
@@ -257,18 +274,6 @@ private fun collectAllClassRoots(project: Project): Set<VirtualFile> {
         }
     } catch (_: Exception) { }
 
-    // 7. IntelliJ IDE installation lib/ directory (for platform classes)
-    try {
-        val ideHome = PathManager.getHomePath()
-        val libDir = File(ideHome, "lib")
-        if (libDir.isDirectory) {
-            libDir.listFiles()?.filter { it.extension == "jar" }?.forEach { jar ->
-                val jarRoot = jarFs.findFileByPath("${jar.absolutePath.replace('\\', '/')}!/")
-                if (jarRoot != null) roots.add(jarRoot)
-            }
-        }
-    } catch (_: Exception) { }
-
     return roots
 }
 
@@ -315,11 +320,11 @@ private fun buildDiagnostic(project: Project, className: String): String {
         sb.append("basePath=$basePath | ")
         sb.append("isDumb=${DumbService.getInstance(project).isDumb} | ")
 
-        val classRoots = collectAllClassRoots(project)
+        val classRoots = getCachedClassRoots(project)
         sb.append("classRoots=${classRoots.size} | ")
         classRoots.take(5).forEachIndexed { i, r -> sb.append("root[$i]=${r.url} | ") }
 
-        val sourceRoots = collectAllSourceRoots(project)
+        val sourceRoots = getCachedSourceRoots(project)
         sb.append("sourceRoots=${sourceRoots.size} | ")
         sourceRoots.take(3).forEachIndexed { i, r -> sb.append("src[$i]=${r.url} | ") }
 

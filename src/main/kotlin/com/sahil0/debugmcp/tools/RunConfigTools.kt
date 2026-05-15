@@ -1,7 +1,6 @@
 package com.sahil0.debugmcp.tools
 
 import com.intellij.execution.ExecutionListener
-import com.intellij.execution.ExecutionManager
 import com.intellij.execution.ProgramRunnerUtil
 import com.intellij.execution.RunManager
 import com.intellij.execution.executors.DefaultDebugExecutor
@@ -10,15 +9,15 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.compiler.CompilerManager
 import com.intellij.openapi.project.Project
 import com.intellij.problems.WolfTheProblemSolver
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
 
-fun registerRunConfigTools(server: Server, project: Project) {
+fun registerRunConfigTools(server: McpServer, project: Project) {
 
     // --- list_run_configurations ---
     server.addTool(
@@ -256,7 +255,11 @@ private fun gatherBuildContext(project: Project): JsonObject {
 
         // 2. Check for running execution processes (may be in pre-debug build phase)
         try {
-            val descriptors = ExecutionManager.getInstance(project).getRunningDescriptors { true }
+            val rcm = com.intellij.execution.ui.RunContentManager.getInstance(project)
+            val descriptors = rcm.allDescriptors.filter { desc ->
+                val handler = desc.processHandler
+                handler != null && !handler.isProcessTerminated
+            }
             if (descriptors.isNotEmpty()) {
                 val processes = descriptors.map { desc ->
                     buildJsonObject {

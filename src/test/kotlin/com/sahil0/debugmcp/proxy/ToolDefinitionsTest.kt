@@ -1,6 +1,6 @@
 package com.sahil0.debugmcp.proxy
 
-import kotlinx.serialization.json.*
+import org.json.JSONObject
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -11,28 +11,28 @@ class ToolDefinitionsTest {
 
     @Test
     fun `all 19 tools are defined`() {
-        assertEquals(19, tools.size, "Expected 19 tool definitions")
+        assertEquals(19, tools.length(), "Expected 19 tool definitions")
     }
 
     @Test
     fun `every tool has name, description, and inputSchema`() {
-        for (element in tools) {
-            val tool = element.jsonObject
-            assertTrue(tool.containsKey("name"), "Tool missing 'name'")
-            assertTrue(tool.containsKey("description"), "Tool missing 'description'")
-            assertTrue(tool.containsKey("inputSchema"), "Tool ${tool["name"]} missing 'inputSchema'")
+        for (i in 0 until tools.length()) {
+            val tool = tools.getJSONObject(i)
+            assertTrue(tool.has("name"), "Tool missing 'name'")
+            assertTrue(tool.has("description"), "Tool missing 'description'")
+            assertTrue(tool.has("inputSchema"), "Tool ${tool.opt("name")} missing 'inputSchema'")
         }
     }
 
     @Test
     fun `every tool has port property for routing`() {
-        for (element in tools) {
-            val tool = element.jsonObject
-            val schema = tool["inputSchema"]!!.jsonObject
-            val props = schema["properties"]?.jsonObject ?: continue
+        for (i in 0 until tools.length()) {
+            val tool = tools.getJSONObject(i)
+            val schema = tool.getJSONObject("inputSchema")
+            val props = schema.optJSONObject("properties") ?: continue
             assertTrue(
-                props.containsKey("port"),
-                "Tool '${tool["name"]!!.jsonPrimitive.content}' missing 'port' property"
+                props.has("port"),
+                "Tool '${tool.getString("name")}' missing 'port' property"
             )
         }
     }
@@ -48,13 +48,16 @@ class ToolDefinitionsTest {
             "decompile_class" to listOf("className"),
         )
 
-        for (element in tools) {
-            val tool = element.jsonObject
-            val name = tool["name"]!!.jsonPrimitive.content
+        for (i in 0 until tools.length()) {
+            val tool = tools.getJSONObject(i)
+            val name = tool.getString("name")
             val expectedRequired = requirementsMap[name] ?: continue
 
-            val schema = tool["inputSchema"]!!.jsonObject
-            val actual = schema["required"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            val schema = tool.getJSONObject("inputSchema")
+            val requiredArr = schema.optJSONArray("required")
+            val actual = if (requiredArr != null) {
+                (0 until requiredArr.length()).map { requiredArr.getString(it) }
+            } else emptyList()
             assertEquals(
                 expectedRequired.sorted(), actual.sorted(),
                 "Tool '$name' has wrong required params"
@@ -72,7 +75,7 @@ class ToolDefinitionsTest {
             "get_console_output", "send_console_input", "get_process_info",
             "decompile_class"
         )
-        val actual = tools.map { it.jsonObject["name"]!!.jsonPrimitive.content }.toSet()
+        val actual = (0 until tools.length()).map { tools.getJSONObject(it).getString("name") }.toSet()
         assertEquals(expected, actual)
     }
 
@@ -84,13 +87,13 @@ class ToolDefinitionsTest {
             "get_variables", "evaluate_expression", "get_console_output",
             "send_console_input", "get_process_info"
         )
-        for (element in tools) {
-            val tool = element.jsonObject
-            val name = tool["name"]!!.jsonPrimitive.content
+        for (i in 0 until tools.length()) {
+            val tool = tools.getJSONObject(i)
+            val name = tool.getString("name")
             if (name in sessionTools) {
-                val props = tool["inputSchema"]!!.jsonObject["properties"]!!.jsonObject
+                val props = tool.getJSONObject("inputSchema").getJSONObject("properties")
                 assertTrue(
-                    props.containsKey("sessionName"),
+                    props.has("sessionName"),
                     "Tool '$name' should have 'sessionName' property"
                 )
             }

@@ -1,20 +1,19 @@
 package com.sahil0.debugmcp.tools
 
-import com.intellij.debugger.engine.JavaExecutionStack
+import com.intellij.debugger.engine.JavaDebugProcess
+import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.openapi.project.Project
 import com.intellij.xdebugger.frame.XExecutionStack
 import com.intellij.xdebugger.frame.XStackFrame
-import io.modelcontextprotocol.kotlin.sdk.server.ClientConnection
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.serialization.json.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-fun registerExecutionControlTools(server: Server, project: Project) {
+fun registerExecutionControlTools(server: McpServer, project: Project) {
 
     // --- resume ---
     server.addTool(
@@ -172,16 +171,22 @@ fun registerExecutionControlTools(server: Server, project: Project) {
                 stacks.add(0, activeStack)
             }
 
+            // Build a name→proxy lookup from the VM when available (avoids @Internal getThreadProxy())
+            val threadLookup: Map<String, ThreadReferenceProxyImpl> = try {
+                val javaProcess = session.debugProcess as? JavaDebugProcess
+                val vmProxy = javaProcess?.debuggerSession?.process?.virtualMachineProxy
+                vmProxy?.allThreads()?.associateBy { it.name() } ?: emptyMap()
+            } catch (_: Exception) { emptyMap() }
+
             for (stack in stacks) {
                 threads.add(buildJsonObject {
                     put("name", stack.displayName)
                     put("isActive", stack == activeStack)
-                    if (stack is JavaExecutionStack) {
-                        val threadProxy = stack.threadProxy
-                        if (threadProxy != null) {
-                            put("status", threadProxy.status().toString())
-                            put("threadId", threadProxy.uniqueID())
-                        }
+                    // Match thread by display name to get status/ID via public JDI API
+                    val proxy = threadLookup[stack.displayName]
+                    if (proxy != null) {
+                        put("status", proxy.status().toString())
+                        put("threadId", proxy.uniqueID())
                     }
                 })
             }

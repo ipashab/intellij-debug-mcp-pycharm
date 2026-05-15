@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.2.0] — 2026-05-14
+
+### Changed
+- Made the plugin lighter and reduced thirdparty dependencies.
+
 ## [0.1.0] — 2025-05-10
 
 ### Added

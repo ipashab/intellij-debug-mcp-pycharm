@@ -5,12 +5,10 @@ import com.intellij.ui.SimpleTextAttributes
 import com.intellij.xdebugger.evaluation.XDebuggerEvaluator
 import com.intellij.xdebugger.frame.*
 import com.intellij.xdebugger.frame.presentation.XValuePresentation
-import io.modelcontextprotocol.kotlin.sdk.server.ClientConnection
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.serialization.json.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -103,7 +101,7 @@ private fun computeXValuePresentation(xValue: XValue, timeoutSeconds: Long = 10)
     return PresentationResult(value, type, hasChildren)
 }
 
-fun registerInspectionTools(server: Server, project: Project) {
+fun registerInspectionTools(server: McpServer, project: Project) {
 
     // --- get_variables ---
     server.addTool(

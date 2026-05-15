@@ -62,6 +62,15 @@ class McpPanel(private val project: Project) : JBPanel<JBPanel<*>>(BorderLayout(
     private val settings = project.service<McpSettingsState>()
 
     private val statusField  = copyableField("Initializing...")
+    private val errorArea = JTextArea(2, 0).apply {
+        isEditable = false
+        lineWrap = true
+        wrapStyleWord = true
+        foreground = java.awt.Color(0xCC, 0x33, 0x33)
+        font = font.deriveFont(Font.PLAIN, 11f)
+        border = JBUI.Borders.empty(4)
+        isVisible = false
+    }
     private val portField    = copyableField("—")
     private val clientsField = copyableField("0")
 
@@ -100,6 +109,13 @@ class McpPanel(private val project: Project) : JBPanel<JBPanel<*>>(BorderLayout(
             add(sectionTitle("Server"))
             add(Box.createVerticalStrut(6))
             add(labeledRow("Status:", statusField))
+            add(Box.createVerticalStrut(4))
+            val errorPanel = JPanel(BorderLayout()).apply {
+                alignmentX = Component.LEFT_ALIGNMENT
+                add(errorArea, BorderLayout.CENTER)
+                maximumSize = Dimension(Int.MAX_VALUE, 80)
+            }
+            add(errorPanel)
             add(Box.createVerticalStrut(4))
             add(labeledRow("Port:", portField))
             add(Box.createVerticalStrut(4))
@@ -215,13 +231,26 @@ class McpPanel(private val project: Project) : JBPanel<JBPanel<*>>(BorderLayout(
 
     private fun refreshAll() {
         val running = service.isRunning
-        statusField.text  = if (running) "Running" else "Stopped"
+        val error = service.lastError
+        statusField.text = when {
+            error != null && !running -> "Error"
+            error != null && running  -> "Running (with errors)"
+            running                   -> "Running"
+            else                      -> "Stopped"
+        }
+        if (error != null) {
+            errorArea.text = error
+            errorArea.isVisible = true
+        } else {
+            errorArea.text = ""
+            errorArea.isVisible = false
+        }
         portField.text    = if (running) service.port.toString() else "—"
         clientsField.text = service.connectedClients.toString()
 
         startButton.isEnabled   = !running
-        stopButton.isEnabled    = running
-        restartButton.isEnabled = running
+        stopButton.isEnabled    = running || error != null
+        restartButton.isEnabled = running || error != null
 
         refreshConfig()
     }
@@ -244,12 +273,12 @@ class McpPanel(private val project: Project) : JBPanel<JBPanel<*>>(BorderLayout(
     }
 
     private fun resolveProxyPath(): String {
-        // 1) Derive from this class's own Jar location (most reliable across OSs)
+        // 1) Derive from this class's own JAR location (most reliable across OSes)
         try {
             val codeSource = McpPanel::class.java.protectionDomain?.codeSource?.location
             if (codeSource != null) {
                 val jarPath = java.nio.file.Paths.get(codeSource.toURI())
-                // JAR lives at <plugin-dir>/lib/<name>.jar -> parent.parent = plugin dir
+                // JAR lives at <plugin-dir>/lib/<name>.jar → parent.parent = plugin dir
                 val pluginDir = jarPath.parent?.parent
                 if (pluginDir != null) {
                     val launcher = pluginDir.resolve("bin").resolve("debugmcp-proxy.cmd")
@@ -260,8 +289,7 @@ class McpPanel(private val project: Project) : JBPanel<JBPanel<*>>(BorderLayout(
             }
         } catch (_: Exception) {}
 
-
-        // 2) Try the installed plugin directory
+        // 2) Try the installed plugin directory via PluginManagerCore
         try {
             val descriptor = PluginManagerCore.getPlugin(PluginId.getId("com.sahil0.debugmcp"))
             if (descriptor != null) {

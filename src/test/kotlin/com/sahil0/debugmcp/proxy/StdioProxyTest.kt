@@ -1,6 +1,6 @@
 package com.sahil0.debugmcp.proxy
 
-import kotlinx.serialization.json.*
+import org.json.JSONObject
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -17,30 +17,27 @@ class StdioProxyTest {
     @Test
     fun `initialize returns protocol version and capabilities`() {
         val captured = captureResponse {
-            StdioProxy.handleRequest(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", JsonPrimitive(1))
-                put("method", JsonPrimitive("initialize"))
-                put("params", buildJsonObject {
-                    put("protocolVersion", JsonPrimitive("2024-11-05"))
-                    put("capabilities", buildJsonObject {})
-                    put("clientInfo", buildJsonObject {
-                        put("name", JsonPrimitive("test"))
-                        put("version", JsonPrimitive("1.0"))
-                    })
-                })
-            })
+            StdioProxy.handleRequest(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", 1)
+                .put("method", "initialize")
+                .put("params", JSONObject()
+                    .put("protocolVersion", "2024-11-05")
+                    .put("capabilities", JSONObject())
+                    .put("clientInfo", JSONObject()
+                        .put("name", "test")
+                        .put("version", "1.0"))))
         }
 
         assertNotNull(captured)
-        assertEquals("2.0", captured["jsonrpc"]!!.jsonPrimitive.content)
-        assertEquals(1, captured["id"]!!.jsonPrimitive.int)
+        assertEquals("2.0", captured.getString("jsonrpc"))
+        assertEquals(1, captured.getInt("id"))
 
-        val result = captured["result"]!!.jsonObject
-        assertEquals("2024-11-05", result["protocolVersion"]!!.jsonPrimitive.content)
-        assertNotNull(result["capabilities"])
-        assertNotNull(result["serverInfo"])
-        assertEquals("intellij-debug-mcp-proxy", result["serverInfo"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+        val result = captured.getJSONObject("result")
+        assertEquals("2024-11-05", result.getString("protocolVersion"))
+        assertNotNull(result.opt("capabilities"))
+        assertNotNull(result.opt("serverInfo"))
+        assertEquals("intellij-debug-mcp-proxy", result.getJSONObject("serverInfo").getString("name"))
     }
 
     // ── handleRequest: tools/list ──
@@ -48,16 +45,15 @@ class StdioProxyTest {
     @Test
     fun `tools list returns all tools`() {
         val captured = captureResponse {
-            StdioProxy.handleRequest(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", JsonPrimitive(2))
-                put("method", JsonPrimitive("tools/list"))
-            })
+            StdioProxy.handleRequest(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", 2)
+                .put("method", "tools/list"))
         }
 
         assertNotNull(captured)
-        val tools = captured["result"]!!.jsonObject["tools"]!!.jsonArray
-        assertTrue(tools.size >= 18, "Should have at least 18 tools, got ${tools.size}")
+        val tools = captured.getJSONObject("result").getJSONArray("tools")
+        assertTrue(tools.length() >= 18, "Should have at least 18 tools, got ${tools.length()}")
     }
 
     // ── handleRequest: unknown method ──
@@ -65,17 +61,16 @@ class StdioProxyTest {
     @Test
     fun `unknown method returns error -32601`() {
         val captured = captureResponse {
-            StdioProxy.handleRequest(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("id", JsonPrimitive(99))
-                put("method", JsonPrimitive("unknown/method"))
-            })
+            StdioProxy.handleRequest(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("id", 99)
+                .put("method", "unknown/method"))
         }
 
         assertNotNull(captured)
-        val error = captured["error"]!!.jsonObject
-        assertEquals(-32601, error["code"]!!.jsonPrimitive.int)
-        assertTrue(error["message"]!!.jsonPrimitive.content.contains("unknown/method"))
+        val error = captured.getJSONObject("error")
+        assertEquals(-32601, error.getInt("code"))
+        assertTrue(error.getString("message").contains("unknown/method"))
     }
 
     // ── handleRequest: notification (no id) produces no response ──
@@ -83,10 +78,9 @@ class StdioProxyTest {
     @Test
     fun `notifications initialized produces no response`() {
         val captured = captureResponse {
-            StdioProxy.handleRequest(buildJsonObject {
-                put("jsonrpc", JsonPrimitive("2.0"))
-                put("method", JsonPrimitive("notifications/initialized"))
-            })
+            StdioProxy.handleRequest(JSONObject()
+                .put("jsonrpc", "2.0")
+                .put("method", "notifications/initialized"))
         }
         assertNull(captured, "Notifications should not produce a response")
     }
@@ -95,31 +89,28 @@ class StdioProxyTest {
 
     @Test
     fun `extractTargetPort with no port returns null port`() {
-        val args = buildJsonObject { put("name", JsonPrimitive("foo")) }
+        val args = JSONObject().put("name", "foo")
         val (port, cleaned, err) = StdioProxy.extractTargetPort(args)
         assertNull(port)
         assertNull(err)
-        assertEquals(args, cleaned)
+        assertEquals("foo", cleaned.getString("name"))
     }
 
     @Test
     fun `extractTargetPort with valid port extracts and removes it`() {
-        val args = buildJsonObject {
-            put("name", JsonPrimitive("foo"))
-            put("port", JsonPrimitive(12345))
-        }
+        val args = JSONObject()
+            .put("name", "foo")
+            .put("port", 12345)
         val (port, cleaned, err) = StdioProxy.extractTargetPort(args)
         assertEquals(12345, port)
         assertNull(err)
-        assertTrue(!cleaned.containsKey("port"), "port should be removed from forwarded args")
-        assertEquals("foo", cleaned["name"]!!.jsonPrimitive.content)
+        assertTrue(!cleaned.has("port"), "port should be removed from forwarded args")
+        assertEquals("foo", cleaned.getString("name"))
     }
 
     @Test
     fun `extractTargetPort with invalid port returns error`() {
-        val args = buildJsonObject {
-            put("port", JsonPrimitive("not-a-number"))
-        }
+        val args = JSONObject().put("port", "not-a-number")
         val (port, _, err) = StdioProxy.extractTargetPort(args)
         assertNull(port)
         assertNotNull(err)
@@ -131,10 +122,10 @@ class StdioProxyTest {
     @Test
     fun `errorResult produces proper MCP error structure`() {
         val result = StdioProxy.errorResult("test error")
-        assertTrue(result["isError"]!!.jsonPrimitive.boolean)
-        val content = result["content"]!!.jsonArray
-        assertEquals(1, content.size)
-        val text = content[0].jsonObject["text"]!!.jsonPrimitive.content
+        assertTrue(result.getBoolean("isError"))
+        val content = result.getJSONArray("content")
+        assertEquals(1, content.length())
+        val text = content.getJSONObject(0).getString("text")
         assertTrue(text.contains("test error"))
     }
 
@@ -180,10 +171,10 @@ class StdioProxyTest {
         val origDir = System.getProperty("user.dir")
         try {
             System.setProperty("user.dir", System.getProperty("java.io.tmpdir"))
-            val result = StdioProxy.forwardToolCall("get_debug_status", buildJsonObject {})
+            val result = StdioProxy.forwardToolCall("get_debug_status", JSONObject())
             // Should return an error since no port files exist under temp dir
-            val isError = result["isError"]?.jsonPrimitive?.boolean ?: false
-            val hasContent = result.containsKey("content")
+            val isError = result.optBoolean("isError", false)
+            val hasContent = result.has("content")
             assertTrue(isError || hasContent, "Expected an error or content in result")
         } finally {
             System.setProperty("user.dir", origDir)
@@ -194,10 +185,8 @@ class StdioProxyTest {
     fun `forwardToolCall to unreachable port returns error`() {
         StdioProxy.connections.clear()
         // Use a random high port that is almost certainly not listening
-        val result = StdioProxy.forwardToolCall("get_debug_status", buildJsonObject {
-            put("port", JsonPrimitive(59999))
-        })
-        assertTrue(result["isError"]!!.jsonPrimitive.boolean)
+        val result = StdioProxy.forwardToolCall("get_debug_status", JSONObject().put("port", 59999))
+        assertTrue(result.getBoolean("isError"))
     }
 
     // ── Helpers ──
@@ -206,7 +195,7 @@ class StdioProxyTest {
      * Capture stdout from a handleRequest call. Returns the parsed JSON response,
      * or null if nothing was written.
      */
-    private fun captureResponse(block: () -> Unit): JsonObject? {
+    private fun captureResponse(block: () -> Unit): JSONObject? {
         val origOut = System.out
         val baos = java.io.ByteArrayOutputStream()
         System.setOut(java.io.PrintStream(baos, true, "UTF-8"))
@@ -217,6 +206,6 @@ class StdioProxyTest {
         }
         val output = baos.toString("UTF-8").trim()
         if (output.isEmpty()) return null
-        return Json.parseToJsonElement(output).jsonObject
+        return JSONObject(output)
     }
 }

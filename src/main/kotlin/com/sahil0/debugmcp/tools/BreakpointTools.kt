@@ -8,12 +8,10 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.breakpoints.XBreakpointProperties
 import com.intellij.xdebugger.breakpoints.XLineBreakpoint
-import io.modelcontextprotocol.kotlin.sdk.server.ClientConnection
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.serialization.json.*
 
 /**
@@ -29,7 +27,7 @@ private fun resolveClassFile(project: Project, className: String): VirtualFile {
     }
 }
 
-fun registerBreakpointTools(server: Server, project: Project) {
+fun registerBreakpointTools(server: McpServer, project: Project) {
 
     // --- set_breakpoint ---
     server.addTool(

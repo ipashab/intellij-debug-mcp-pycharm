@@ -3,13 +3,13 @@ package com.sahil0.debugmcp.tools
 import com.intellij.debugger.engine.JavaDebugProcess
 import com.intellij.execution.process.BaseProcessHandler
 import com.intellij.openapi.project.Project
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.types.TextContent
-import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.CallToolResult
+import com.sahil0.debugmcp.mcp.TextContent
+import com.sahil0.debugmcp.mcp.ToolSchema
 import kotlinx.serialization.json.*
 
-fun registerProcessInfoTools(server: Server, project: Project) {
+fun registerProcessInfoTools(server: McpServer, project: Project) {
 
     // --- get_process_info ---
     server.addTool(

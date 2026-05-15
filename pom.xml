@@ -6,7 +6,7 @@
 
     <groupId>com.sahil0.debugmcp</groupId>
     <artifactId>intellij-debug-mcp-plugin</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>jar</packaging>
 
     <name>Debug MCP Server - IntelliJ Plugin</name>
@@ -15,30 +15,14 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>2.3.0</kotlin.version>
-        <mcp.sdk.version>0.11.1</mcp.sdk.version>
-        <ktor.version>3.1.1</ktor.version>
-        <coroutines.version>1.10.1</coroutines.version>
-        <serialization.version>1.8.1</serialization.version>
-        <!-- Default for Linux; overridden by OS profiles below or via /=... -->
-        <intellij.home>${user.home}/.local/share/JetBrains/Toolbox/apps/intellij-idea</intellij.home>
+        <coroutines.version>1.10.2</coroutines.version>
+        <serialization.version>1.9.0</serialization.version>
+        <!-- Default for Windows; overridden by OS profiles below or via -Dintellij.home=... -->
+        <intellij.home>C:/Program Files/JetBrains/IntelliJ IDEA 2026.1</intellij.home>
         <kotlin.compiler.jvmTarget>17</kotlin.compiler.jvmTarget>
     </properties>
 
     <dependencies>
-        <!-- ==================== -->
-        <!-- MCP SDK + Transports -->
-        <!-- ==================== -->
-        <dependency>
-            <groupId>io.modelcontextprotocol</groupId>
-            <artifactId>kotlin-sdk-jvm</artifactId>
-            <version>${mcp.sdk.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-server-cio-jvm</artifactId>
-            <version>${ktor.version}</version>
-        </dependency>
-
         <!-- ==================== -->
         <!-- Kotlin Runtime       -->
         <!-- ==================== -->
@@ -57,12 +41,11 @@
             <artifactId>kotlinx-serialization-json-jvm</artifactId>
             <version>${serialization.version}</version>
         </dependency>
-
-        <!-- SLF4J no-op to suppress MCP SDK logging -->
+        <!-- Lightweight JSON for standalone proxy JAR (replaces kotlinx-serialization in proxy) -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-nop</artifactId>
-            <version>2.0.17</version>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version>
         </dependency>
 
         <!-- ================================================== -->
@@ -533,6 +516,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/intellij-debug-mcp-proxy.jar</outputFile>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <minimizeJar>true</minimizeJar>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.sahil0.debugmcp.proxy.StdioProxy</mainClass>
@@ -548,11 +532,22 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
+                                <!-- Only include proxy classes from the project itself -->
+                                <filter>
+                                    <artifact>${project.groupId}:${project.artifactId}</artifact>
+                                    <includes>
+                                        <include>com/sahil0/debugmcp/proxy/**</include>
+                                    </includes>
+                                </filter>
                             </filters>
                             <artifactSet>
                                 <excludes>
                                     <exclude>com.jetbrains.intellij.platform:*</exclude>
                                     <exclude>com.jetbrains.intellij.java:*</exclude>
+                                    <!-- Proxy uses org.json instead of kotlinx-serialization -->
+                                    <exclude>org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm</exclude>
+                                    <exclude>org.jetbrains.kotlinx:kotlinx-serialization-json-jvm</exclude>
+                                    <exclude>org.jetbrains.kotlinx:kotlinx-serialization-core-jvm</exclude>
                                 </excludes>
                             </artifactSet>
                         </configuration>

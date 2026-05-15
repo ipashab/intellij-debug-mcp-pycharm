@@ -1,30 +1,46 @@
 package com.sahil0.debugmcp
 
+import com.sahil0.debugmcp.mcp.McpServer
+import com.sahil0.debugmcp.mcp.runMcpSession
 import com.sahil0.debugmcp.tools.*
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
-import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
-import io.modelcontextprotocol.kotlin.sdk.types.Implementation
-import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 import kotlinx.coroutines.*
-import kotlinx.io.asSink
-import kotlinx.io.asSource
-import kotlinx.io.buffered
 import java.io.File
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @Service(Service.Level.PROJECT)
 class McpServerService(private val project: Project) : Disposable {
 
     private val log = Logger.getInstance(McpServerService::class.java)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Use a dedicated thread pool with the plugin's classloader to avoid
+    // ServiceLoader conflicts with IntelliJ's CoroutineExceptionHandler.
+    // The DefaultDispatcher's threads use a different context classloader,
+    // causing "not a subtype" errors when coroutine exception handling
+    // tries ServiceLoader.load(CoroutineExceptionHandler::class.java).
+    private val threadCounter = AtomicInteger(0)
+    private val executor = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "DebugMCP-worker-${threadCounter.getAndIncrement()}").also {
+            it.isDaemon = true
+            it.contextClassLoader = McpServerService::class.java.classLoader
+        }
+    }
+    private val dispatcher = executor.asCoroutineDispatcher()
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        log.error("Uncaught coroutine exception in MCP server", throwable)
+        lastError = "${throwable.javaClass.simpleName}: ${throwable.message}"
+        isRunning = false
+        notifyStatusChanged()
+    }
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher + exceptionHandler)
 
     private var serverSocket: ServerSocket? = null
     private val activeConnections = CopyOnWriteArrayList<Job>()
@@ -32,6 +48,8 @@ class McpServerService(private val project: Project) : Disposable {
     var port: Int = 0
         private set
     var isRunning: Boolean = false
+        private set
+    var lastError: String? = null
         private set
 
     val connectedClients: Int get() = activeConnections.count { it.isActive }
@@ -70,6 +88,7 @@ class McpServerService(private val project: Project) : Disposable {
                 serverSocket = tryBind(bindPort, bindAddr)
                 port = serverSocket!!.localPort
                 isRunning = true
+                lastError = null
                 log.info("Debug MCP Server started on port $port for project '${project.name}'")
 
                 // Write port file so external agents can discover us
@@ -87,8 +106,9 @@ class McpServerService(private val project: Project) : Disposable {
                         break
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 log.error("Failed to start MCP Server", e)
+                lastError = "${e.javaClass.simpleName}: ${e.message}"
                 isRunning = false
                 notifyStatusChanged()
             }
@@ -153,30 +173,12 @@ class McpServerService(private val project: Project) : Disposable {
         val job = scope.launch {
             try {
                 notifyStatusChanged()
-
-                // Create a new MCP server instance for this connection
                 val mcpServer = createMcpServer()
-
-                val inputStream = socket.getInputStream()
-                val outputStream = socket.getOutputStream()
-
-                val transport = StdioServerTransport(
-                    inputStream.asSource().buffered(),
-                    outputStream.asSink().buffered()
-                )
-
-                val session = mcpServer.createSession(transport)
-
-                // Keep alive until the connection closes or the coroutine is cancelled
-                try {
-                    awaitCancellation()
-                } finally {
-                    session.close()
-                    mcpServer.close()
-                }
-            } catch (e: Exception) {
+                runMcpSession(socket.getInputStream(), socket.getOutputStream(), mcpServer)
+            } catch (e: Throwable) {
                 if (e !is CancellationException) {
                     log.warn("MCP client connection error", e)
+                    lastError = "Client error: ${e.javaClass.simpleName}: ${e.message}"
                 }
             } finally {
                 try {
@@ -189,13 +191,8 @@ class McpServerService(private val project: Project) : Disposable {
         job.invokeOnCompletion { activeConnections.remove(job) }
     }
 
-    private fun createMcpServer(): Server {
-        val server = Server(
-            serverInfo = Implementation(name = "intellij-debug-mcp", version = "0.1.0"),
-            options = ServerOptions(
-                capabilities = ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = true))
-            )
-        )
+    private fun createMcpServer(): McpServer {
+        val server = McpServer()
 
         // Register all tool groups
         registerRunConfigTools(server, project)
@@ -234,6 +231,7 @@ class McpServerService(private val project: Project) : Disposable {
 
     fun stop() {
         isRunning = false
+        lastError = null
         activeConnections.forEach { it.cancel() }
         activeConnections.clear()
         try {
@@ -254,5 +252,6 @@ class McpServerService(private val project: Project) : Disposable {
     override fun dispose() {
         stop()
         scope.cancel()
+        executor.shutdown()
     }
 }

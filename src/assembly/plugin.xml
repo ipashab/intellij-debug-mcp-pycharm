@@ -13,10 +13,15 @@
             <outputDirectory>lib</outputDirectory>
             <useProjectArtifact>true</useProjectArtifact>
             <scope>runtime</scope>
-            <!-- Exclude IntelliJ system-scope jars from the plugin ZIP -->
+            <!-- Exclude IntelliJ system-scope jars and Kotlin runtime from the plugin ZIP
+                 (IntelliJ 2026.1 bundles these — including them causes classloader conflicts) -->
             <excludes>
-                <exclude>com.jetbrains.intellij.platform:*</exclude>
-                <exclude>com.jetbrains.intellij.java:*</exclude>
+                <exclude>org.jetbrains.kotlin:kotlin-stdlib</exclude>
+                <exclude>org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm</exclude>
+                <exclude>org.jetbrains.kotlinx:kotlinx-serialization-core-jvm</exclude>
+                <exclude>org.jetbrains.kotlinx:kotlinx-serialization-json-jvm</exclude>
+                <!-- org.json is only used by the proxy JAR (already shaded in) -->
+                <exclude>org.json:json</exclude>
             </excludes>
         </dependencySet>
     </dependencySets>
