@@ -1,8 +1,5 @@
+target/
+dependency-reduced-pom.xml
+*.iml
+.idea/
 .DS_Store
-.gradle
-.idea
-.intellijPlatform
-.kotlin
-.class
-build
-target

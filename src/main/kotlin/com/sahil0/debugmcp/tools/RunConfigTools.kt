@@ -6,7 +6,6 @@ import com.intellij.execution.RunManager
 import com.intellij.execution.executors.DefaultDebugExecutor
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.openapi.compiler.CompilerManager
 import com.intellij.openapi.project.Project
 import com.intellij.problems.WolfTheProblemSolver
 import com.sahil0.debugmcp.mcp.McpServer
@@ -245,13 +244,8 @@ fun registerRunConfigTools(server: McpServer, project: Project) {
  */
 private fun gatherBuildContext(project: Project): JsonObject {
     return buildJsonObject {
-        // 1. Check if compilation/build is currently active
-        val isCompiling = try {
-            CompilerManager.getInstance(project).isCompilationActive
-        } catch (_: Exception) {
-            false
-        }
-        put("isCompiling", isCompiling)
+        // 1. No compilation status: only valid for Java projects; Python runs directly.
+        put("isCompiling", false)
 
         // 2. Check for running execution processes (may be in pre-debug build phase)
         try {

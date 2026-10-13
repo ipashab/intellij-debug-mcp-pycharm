@@ -160,24 +160,8 @@ internal fun buildToolDefinitions(): JSONArray {
 
     tools.put(tool(
         "get_process_info",
-        "Get info about the running debug process: PID, command line, JVM args, JVM version, run config name.",
+        "Get info about the running debug process: PID, command line, run config name.",
         includeSessionName = true
-    ))
-
-    tools.put(tool(
-        "decompile_class",
-        "Read decompiled source of a class from the project classpath (including dependency JARs).",
-        properties = JSONObject()
-            .put("className", JSONObject()
-                .put("type", "string")
-                .put("description", "Fully qualified class name, e.g. com.example.MyClass"))
-            .put("lineStart", JSONObject()
-                .put("type", "integer")
-                .put("description", "Optional 1-based start line"))
-            .put("lineEnd", JSONObject()
-                .put("type", "integer")
-                .put("description", "Optional 1-based end line (inclusive)")),
-        required = listOf("className")
     ))
 
     return tools

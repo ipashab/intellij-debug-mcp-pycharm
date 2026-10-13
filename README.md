@@ -1,144 +1,137 @@
-# Debug MCP Server — IntelliJ IDEA Plugin
+# Debug MCP Server — PyCharm
 
-An IntelliJ IDEA plugin that embeds an **MCP (Model Context Protocol)** server, giving AI coding assistants full control over the Java/Kotlin debugger.
+MCP-сервер (Model Context Protocol), встроенный в **PyCharm**, который даёт AI-агентам
+(OpenCode, Claude Code, Cursor, Windsurf и любым другим MCP-клиентам) полный контроль над
+отладчиком PyCharm: брейкпоинты, степпинг, переменные, evaluate, консоль.
 
-Works with **Windsurf Cascade**, **Cursor**, **Claude Code**, and any MCP-compatible client.
+Порт плагина [sahil-ramagiri/intellij-debug-mcp](https://github.com/sahil-ramagiri/intellij-debug-mcp)
+(IntelliJ IDEA, Java/Kotlin) под **PyCharm 2026.1**: из оригинала вырезана жёсткая зависимость
+от Java-плагина (`com.intellij.java`), из-за которой он вообще не загружался в PyCharm.
+Инструменты переведены на generic XDebugger API — работают с Python (и любыми другими
+языками, поддерживаемыми IDE).
 
----
+## Возможности — 18 инструментов
 
-## Features
-
-| Category | Tools |
+| Группа | Инструменты |
 |---|---|
-| **Run Configs** | `list_run_configurations`, `start_debug_session`, `stop_debug_session`, `get_debug_status` |
-| **Breakpoints** | `set_breakpoint`, `remove_breakpoint`, `list_breakpoints` |
-| **Execution** | `resume`, `step_over`, `step_into`, `step_out` |
-| **Inspection** | `get_threads`, `get_stack_trace`, `get_variables`, `evaluate_expression`, `get_console_output`, `send_console_input` |
-| **Class Inspection** | `decompile_class` — read decompiled source from any JAR/library class |
-| **Process** | `get_process_info` |
+| Run-конфигурации | `list_run_configurations`, `start_debug_session`, `stop_debug_session`, `get_debug_status` |
+| Брейкпоинты | `set_breakpoint` (с условием), `remove_breakpoint`, `list_breakpoints` |
+| Степпинг | `resume`, `step_over`, `step_into`, `step_out` |
+| Инспекция | `get_threads`, `get_stack_trace`, `get_variables`, `evaluate_expression`, `get_console_output`, `send_console_input` |
+| Процесс | `get_process_info` |
 
-- **19 tools** total, all accessible via MCP `tools/call`.
-- `set_breakpoint` / `remove_breakpoint` support `filePath` (local source) **or** `className` (JAR/library classes).
-- All execution/inspection tools accept optional `sessionName` (target a specific debug session) and `port` (route to a specific IntelliJ instance).
+Все инструменты принимают опциональный `sessionName` (цель в конкретную сессию из `get_debug_status`)
+и опциональный `port` (маршрутизация в конкретный инстанс IDE — полезно при нескольких открытых окнах).
 
----
+## Установка
 
-## Installation
+Готовый собранный плагин: **[Releases](../../releases)** → `debug-mcp-pycharm-<version>.zip`.
 
-### From ZIP (recommended)
+1. PyCharm → Settings → Plugins → ⚙ → **Install Plugin from Disk…** → выберите zip.
+2. Перезапустите PyCharm. Сервер стартует автоматически при открытии проекта.
 
-1. Build the plugin (see [Building from Source](#building-from-source)) or download a release ZIP.
-2. In IntelliJ: **Settings → Plugins → ⚙ → Install Plugin from Disk…**
-3. Select the `intellij-debug-mcp-plugin-<version>-plugin.zip` file.
-4. Restart IntelliJ.
+Порт (режим Dynamic — по умолчанию) пишется в `<проект>/.idea/debugmcp.port`,
+tool window **Debug MCP** (нижняя панель) показывает порт и готовый конфиг для MCP-клиента.
 
----
+## Настройка MCP-клиентов
 
-## Configuration
+Внутри каждого инструмента есть параметр `port`; но проще использовать bundled stdio-прокси —
+он сам находит порт через `.idea/debugmcp.port` и переподключается при перезапуске IDE.
+(Учтите: при нескольких открытых окнах PyCharm прокси возьмёт порт последнего активного
+проекта; для конкретного окна передавайте `port` явно.)
 
-### Plugin Settings
+### OpenCode / OpenChamber
 
-Open the **Debug MCP** tool window (bottom bar) to configure:
+`opencode.json` (глобальный `~/.config/opencode/opencode.json` или проекта `.opencode/opencode.json`):
 
-| Setting | Description |
-|---|---|
-| **Port Mode** | `Dynamic` (auto-assigned, default) or `Fixed` (user-specified port) |
-| **Fixed Port** | Port number when using Fixed mode (default: `6274`) |
+```json
+{
+  "mcp": {
+    "pycharm-debug": {
+      "type": "local",
+      "command": [
+        "/Applications/PyCharm.app/Contents/jbr/Contents/Home/bin/java",
+        "-jar",
+        "<plugin-dir>/lib/intellij-debug-mcp-proxy.jar"
+      ],
+      "enabled": true
+    }
+  }
+}
+```
 
-Settings are persisted per-project in `.idea/debugMcpSettings.xml`.
+`<plugin-dir>` на macOS:
+`~/Library/Application Support/JetBrains/PyCharm2026.1/plugins/intellij-debug-mcp-plugin`
 
-### MCP Client Setup
+При нескольких проектах порт можно жёстко задать в tool window **Debug MCP**
+(режим Fixed, например `6274`) и ходить напрямую.
 
-The plugin includes a **bundled cross-platform launcher** (`bin/debugmcp-proxy.cmd`) that solves the boot-ordering problem: the proxy starts instantly and connects to IntelliJ on demand, so your MCP client never fails even if IntelliJ hasn't started yet.
-
-The launcher is a polyglot shell/batch script — one file that works on **Windows**, **macOS**, and **Linux**. It finds `java` (via `JAVA_HOME` or `PATH`) and runs the proxy JAR automatically. No Python required.
-
-The **Debug MCP** tool window shows the exact path and a ready-to-copy config snippet.
-
-#### Windsurf / Cursor / Claude Code
-
-Add to your MCP configuration (`mcp_config.json` or equivalent):
+### Claude Code / Cursor / Windsurf (stdio)
 
 ```json
 {
   "mcpServers": {
-    "intellij-debug": {
+    "pycharm-debug": {
       "command": "<plugin-dir>/bin/debugmcp-proxy.cmd"
     }
   }
 }
 ```
 
-> **Tip:** Open the Debug MCP tool window in IntelliJ — it shows the full resolved path and a ready-to-copy config block.
+> На macOS после установки проверьте, что `bin/debugmcp-proxy.cmd` не содержит CRLF
+> (`file` должен показать `POSIX shell script`); при необходимости: `sed -i '' 's/\r$//' <файл>`.
 
-#### Direct TCP Connection
+### Прямое TCP-подключение
 
-For clients that support TCP/socket connections directly:
+Для клиентов с нативной поддержкой сокетов:
 
 ```
 Host: 127.0.0.1
-Port: <shown in Debug MCP tool window>
+Port: <из tool window Debug MCP или .idea/debugmcp.port>
 Protocol: newline-delimited JSON-RPC (MCP)
 ```
 
-### Port Discovery
+## Использование (типовой сценарий)
 
-The plugin writes the active port to `<project>/.idea/debugmcp.port` so external tools (including the bundled proxy) can auto-discover it.
+1. `set_breakpoint(filePath, line)` — поставить брейкпоинт (filePath — абсолютный путь).
+2. `start_debug_session(configName)` — запуск run-конфигурации в debug.
+3. `get_debug_status` — сессия `suspended`? Вы на брейкпоинте.
+4. `evaluate_expression` / `get_variables` / `get_stack_trace` — инспекция.
+5. `step_over` / `step_into` / `resume` — управление.
+6. `stop_debug_session` — завершение.
 
----
-
-## How It Works
-
+Прогон из агента:
 ```
-┌──────────────────┐       stdio        ┌──────────────────┐      TCP       ┌──────────────────┐
-│   AI Assistant   │ ◄────────────────► │  stdio proxy     │ ◄────────────► │  IntelliJ Plugin │
-│ (Windsurf, etc.) │   MCP JSON-RPC     │  (Kotlin, .jar)  │  JSON-RPC/TCP  │  (MCP Server)    │
-└──────────────────┘                    └──────────────────┘                └──────────────────┘
+«Поставь брейкпоинт на строку 246 test_main_page.py, запусти в дебаге
+конфиг test_rail_shown_on_tv и покажи значение rail_tv_channels»
 ```
 
-1. The **plugin** starts a TCP MCP server inside IntelliJ (auto-start on project open).
-2. The **stdio proxy** (Kotlin/JVM, launched via `debugmcp-proxy.cmd`) bridges between stdio-based MCP clients and the TCP server.
-3. The proxy handles `initialize` and `tools/list` locally for instant startup, and connects to IntelliJ on demand for `tools/call`.
-4. Port auto-discovered from `.idea/debugmcp.port`; reconnects automatically if IntelliJ restarts.
+## Сборка из исходников
 
----
-
-## Building from Source
-
-### Prerequisites
-
-- **JDK 17+**
-- **Maven 3.8+**
-- **IntelliJ IDEA 2026.1** installed (platform JARs referenced as system-scoped dependencies)
-
-### Build
+Требуется JDK 17+, Maven 3.8+, PyCharm 2026.1.
 
 ```bash
-mvn clean package
+mvn -Dintellij.home=/Applications/PyCharm.app/Contents clean package
 ```
 
-Output: `target/intellij-debug-mcp-plugin-<version>-plugin.zip`
+Артефакт: `target/intellij-debug-mcp-plugin-<version>-plugin.zip`.
 
-### Tests
+## Отличия от upstream
 
-```bash
-# Unit tests (proxy logic, tool definitions, JSON-RPC parsing)
-mvn test
+- Убрана зависимость `com.intellij.java` — плагин загружается в PyCharm.
+- Удалён `decompile_class` (Java-специфика).
+- `set_breakpoint`/`remove_breakpoint`: только `filePath` (было ещё `className` для JAR-классов).
+- Убран JDI-lookup потоков/JVM-инфо из `get_threads`/`get_process_info` (Java-only).
+- `isCompiling` в `get_debug_status` — заглушка `false` (Python не компилируется).
+- runtime patch: полиглот-лаунчер `bin/debugmcp-proxy.cmd` без CRLF.
 
-# Integration tests (requires IntelliJ running with plugin enabled)
-mvn verify
-```
+## Известные ограничения
 
-### IntelliJ Home
+- Строковые значения в `evaluate_expression` обрезаются презентером (~100 символов).
+  Обход: доставать значения чанками (`expr[a:b]`) или короткими выражениями по полям.
+- `idea-version` ограничен `261.*` — на мажорных обновлениях PyCharm пересоберите
+  с расширенным диапазоном.
 
-The build expects IntelliJ at the path in `pom.xml` property `intellij.home`. Override if needed:
+## Лицензия
 
-```bash
-mvn clean package -Dintelij.home="/path/to/IntelliJ IDEA"
-```
-
----
-
-## License
-
-See [LICENSE](LICENSE).
+MIT — как и upstream. Оригинал: [sahil-ramagiri/intellij-debug-mcp](https://github.com/sahil-ramagiri/intellij-debug-mcp).

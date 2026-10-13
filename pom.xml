@@ -6,7 +6,7 @@
 
     <groupId>com.sahil0.debugmcp</groupId>
     <artifactId>intellij-debug-mcp-plugin</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-pycharm</version>
     <packaging>jar</packaging>
 
     <name>Debug MCP Server - IntelliJ Plugin</name>
@@ -150,22 +150,6 @@
             <systemPath>${intellij.home}/lib/intellij.platform.debugger.impl.shared.jar</systemPath>
         </dependency>
 
-        <!-- Java Debugger: JavaDebugProcess, DebugProcessImpl, VirtualMachineProxyImpl -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-debugger-impl</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.impl.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-debugger</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.jar</systemPath>
-        </dependency>
-
         <!-- Execution -->
         <dependency>
             <groupId>com.jetbrains.intellij.platform</groupId>
@@ -254,103 +238,6 @@
             <version>local</version>
             <scope>system</scope>
             <systemPath>${intellij.home}/lib/lib.jar</systemPath>
-        </dependency>
-
-        <!-- ================================================== -->
-        <!-- Java Plugin (system scope, local install)          -->
-        <!-- ================================================== -->
-
-        <!-- Java impl -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-impl</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/java-impl.jar</systemPath>
-        </dependency>
-
-        <!-- Java PSI: JavaPsiFacade, PsiClass -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-psi</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.jar</systemPath>
-        </dependency>
-
-        <!-- Java Analysis APIs -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-analysis</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.analysis.jar</systemPath>
-        </dependency>
-
-        <!-- Java Indexing: class search/index -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-indexing</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.indexing.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>java-indexing-impl</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.indexing.impl.jar</systemPath>
-        </dependency>
-
-        <!-- Java Debugger APIs -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>debugger</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>debugger-impl</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.debugger.impl.jar</systemPath>
-        </dependency>
-
-        <!-- Java Compiler: CompilerManager -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>compiler</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.compiler.jar</systemPath>
-        </dependency>
-
-        <!-- Java Execution -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>execution</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.execution.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>execution-impl</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/modules/intellij.java.execution.impl.jar</systemPath>
-        </dependency>
-
-        <!-- JB JDI -->
-        <dependency>
-            <groupId>com.jetbrains.intellij.java</groupId>
-            <artifactId>jb-jdi</artifactId>
-            <version>local</version>
-            <scope>system</scope>
-            <systemPath>${intellij.home}/plugins/java/lib/jb-jdi.jar</systemPath>
         </dependency>
 
         <!-- ==================== -->

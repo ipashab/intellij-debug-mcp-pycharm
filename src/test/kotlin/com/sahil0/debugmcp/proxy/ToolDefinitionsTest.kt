@@ -10,8 +10,8 @@ class ToolDefinitionsTest {
     private val tools = buildToolDefinitions()
 
     @Test
-    fun `all 19 tools are defined`() {
-        assertEquals(19, tools.length(), "Expected 19 tool definitions")
+    fun `all 18 tools are defined`() {
+        assertEquals(18, tools.length(), "Expected 18 tool definitions")
     }
 
     @Test
@@ -45,7 +45,6 @@ class ToolDefinitionsTest {
             "remove_breakpoint" to listOf("line"),
             "evaluate_expression" to listOf("expression"),
             "send_console_input" to listOf("text"),
-            "decompile_class" to listOf("className"),
         )
 
         for (i in 0 until tools.length()) {
@@ -72,8 +71,7 @@ class ToolDefinitionsTest {
             "get_debug_status", "set_breakpoint", "remove_breakpoint", "list_breakpoints",
             "resume", "step_over", "step_into", "step_out", "get_threads",
             "get_stack_trace", "get_variables", "evaluate_expression",
-            "get_console_output", "send_console_input", "get_process_info",
-            "decompile_class"
+            "get_console_output", "send_console_input", "get_process_info"
         )
         val actual = (0 until tools.length()).map { tools.getJSONObject(it).getString("name") }.toSet()
         assertEquals(expected, actual)

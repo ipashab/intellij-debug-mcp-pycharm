@@ -1,7 +1,5 @@
 package com.sahil0.debugmcp.tools
 
-import com.intellij.debugger.engine.JavaDebugProcess
-import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.openapi.project.Project
 import com.intellij.xdebugger.frame.XExecutionStack
 import com.intellij.xdebugger.frame.XStackFrame
@@ -171,23 +169,10 @@ fun registerExecutionControlTools(server: McpServer, project: Project) {
                 stacks.add(0, activeStack)
             }
 
-            // Build a name→proxy lookup from the VM when available (avoids @Internal getThreadProxy())
-            val threadLookup: Map<String, ThreadReferenceProxyImpl> = try {
-                val javaProcess = session.debugProcess as? JavaDebugProcess
-                val vmProxy = javaProcess?.debuggerSession?.process?.virtualMachineProxy
-                vmProxy?.allThreads()?.associateBy { it.name() } ?: emptyMap()
-            } catch (_: Exception) { emptyMap() }
-
             for (stack in stacks) {
                 threads.add(buildJsonObject {
                     put("name", stack.displayName)
                     put("isActive", stack == activeStack)
-                    // Match thread by display name to get status/ID via public JDI API
-                    val proxy = threadLookup[stack.displayName]
-                    if (proxy != null) {
-                        put("status", proxy.status().toString())
-                        put("threadId", proxy.uniqueID())
-                    }
                 })
             }
 

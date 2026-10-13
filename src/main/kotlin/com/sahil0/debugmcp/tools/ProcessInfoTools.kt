@@ -1,6 +1,5 @@
 package com.sahil0.debugmcp.tools
 
-import com.intellij.debugger.engine.JavaDebugProcess
 import com.intellij.execution.process.BaseProcessHandler
 import com.intellij.openapi.project.Project
 import com.sahil0.debugmcp.mcp.McpServer
@@ -64,19 +63,6 @@ fun registerProcessInfoTools(server: McpServer, project: Project) {
                     put("isSuspended", session.isSuspended)
                     put("isPaused", session.isPaused)
                     put("isStopped", session.isStopped)
-
-                    // Java-specific: JVM info via JDI
-                    if (debugProcess is JavaDebugProcess) {
-                        try {
-                            val debuggerSession = debugProcess.debuggerSession
-                            val impl = debuggerSession.process
-                            val vmProxy = impl.virtualMachineProxy
-                            put("jvmName", vmProxy.name())
-                            put("jvmVersion", vmProxy.version())
-                        } catch (_: Exception) {
-                            put("jvmInfo", "unavailable (JDI not connected)")
-                        }
-                    }
                 }
             }
             CallToolResult(content = listOf(TextContent(text = result.toString())))

@@ -200,7 +200,6 @@ class McpServerService(private val project: Project) : Disposable {
         registerExecutionControlTools(server, project)
         registerInspectionTools(server, project)
         registerProcessInfoTools(server, project)
-        registerClassInspectionTools(server, project)
 
         return server
     }
